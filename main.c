@@ -31,7 +31,10 @@ unsigned short oldButtons;
 
 OBJ_ATTR shadowOAM[128];
 
+#define SHADOWOAMLENGTH 128
+
 int seed;
+
 // States
 enum {START, GAME, PAUSE, WIN, LOSE};
 int state;
@@ -89,6 +92,7 @@ void initialize() {
 void goToStart() {
     
     state = START;
+    hasLost = 0;
     seed = 0;
 }
 
@@ -96,7 +100,7 @@ void goToStart() {
 void start() {
     seed++;
     // TODO 2.1 - set up display control register
-    REG_DISPCTL = MODE0 | BG1_ENABLE | SPRITE_ENABLE;
+    REG_DISPCTL = MODE0 | BG1_ENABLE;
 
     // TODO 2.2 - load tile palette
     DMANow(3, startScreenPal, PALETTE, startScreenPalLen/2);
@@ -110,9 +114,21 @@ void start() {
     // TODO 2.5 - load startScreen map to screenblock
     DMANow(3, startScreenMap, &SCREENBLOCK[31], startScreenMapLen/2);
 
+    for (int i = 0; i < SHADOWOAMLENGTH; i++) {
+        shadowOAM[i].attr0 = 0;
+        shadowOAM[i].attr1 = 0;
+        shadowOAM[i].attr2 = 0;
+    }
+    
+
+    DMANow(3, shadowOAM, OAM, 128 * 4);
+
     if (BUTTON_PRESSED(BUTTON_START)) {
-        goToGame();
         srand(seed);
+        initGame();
+        goToGame();
+        
+        
     }
     if (BUTTON_PRESSED(BUTTON_LEFT)) {
         goToLose();
@@ -123,11 +139,16 @@ void start() {
 void goToGame() {
 
     state = GAME;
+
     
 }
 
 // Runs every frame of the game state
 void game() {
+    
+
+    REG_DISPCTL = MODE0 | BG1_ENABLE | SPRITE_ENABLE;
+
 
     // TODO 2.2 - load tile palette
     DMANow(3, gameScreenPal, PALETTE, gameScreenPalLen/2);
@@ -140,12 +161,20 @@ void game() {
     // TODO 2.5 - load gameScreen map to screenblock
 
     DMANow(3, gameScreenMap, &SCREENBLOCK[31], gameScreenMapLen/2);
+    //drawApple();
     updateGame();
     
     
 
     if (BUTTON_PRESSED(BUTTON_START)) {
         goToPause();
+    }
+    //if (snakeHead.applesCollected == 5) {
+    //    goToWin();
+    //}
+
+    if (hasLost) {
+        goToLose();
     }
 }
 
@@ -158,6 +187,8 @@ void goToPause() {
 
 // Runs every frame of the pause state
 void pause() {
+
+    REG_DISPCTL = MODE0 | BG1_ENABLE;
 
     DMANow(3, pauseScreenPal, PALETTE, pauseScreenPalLen/2);
 
@@ -185,6 +216,8 @@ void goToWin() {
 
 
 void win() {
+    REG_DISPCTL = MODE0 | BG1_ENABLE;
+
     DMANow(3, winScreenPal, PALETTE, winScreenPalLen/2);
 
     // TODO 2.3 - set up bg 1 control register
@@ -208,6 +241,8 @@ void goToLose() {
 
 // Runs every frame of the lose state
 void lose() {
+    REG_DISPCTL = MODE0 | BG1_ENABLE;
+
     DMANow(3, loseScreenPal, PALETTE, loseScreenPalLen/2);
 
     // TODO 2.3 - set up bg 1 control register
@@ -218,6 +253,10 @@ void lose() {
     // TODO 2.5 - load furtherTrees map to screenblock
 
     DMANow(3, loseScreenMap, &SCREENBLOCK[31], loseScreenMapLen/2);
+
+    if (BUTTON_PRESSED(BUTTON_START)) {
+        goToStart();
+    }
     
 
    

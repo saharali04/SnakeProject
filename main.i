@@ -145,6 +145,7 @@ typedef struct {
     int aniState;
     int prevAniState;
     int active;
+    int applesCollected;
 } SNAKESPRITE;
 
 typedef struct {
@@ -158,21 +159,30 @@ typedef struct {
     int active;
 } APPLESPRITE;
 
-SNAKESPRITE snake[28];
+SNAKESPRITE snakeBodyArray[28];
 int SNAKELENGTH;
 SNAKESPRITE snakeHead;
 SNAKESPRITE snakeBody;
 
+
+
+extern int hasLost;
+
 APPLESPRITE apple;
 
+APPLESPRITE apples[30];
 
-enum { SNAKENEUTRAL, SNAKESAD, SNAKEHAPPY, SNAKEBODY, APPLE, SNAKEIDLE};
+
+
+enum { SNAKENEUTRAL, SNAKESAD, SNAKEHAPPY, SNAKEBODY, APPLE, BLACKBACKGROUND, SNAKEIDLE};
 
 void initSnake();
 void drawSnake();
 void updateSnake();
 void drawApple();
 void updateGame();
+void initGame();
+void initApples();
 # 8 "main.c" 2
 # 1 "spriteSheet.h" 1
 # 21 "spriteSheet.h"
@@ -1426,7 +1436,10 @@ unsigned short oldButtons;
 
 OBJ_ATTR shadowOAM[128];
 
+
+
 int seed;
+
 
 enum {START, GAME, PAUSE, WIN, LOSE};
 int state;
@@ -1484,6 +1497,7 @@ void initialize() {
 void goToStart() {
 
     state = START;
+    hasLost = 0;
     seed = 0;
 }
 
@@ -1491,7 +1505,7 @@ void goToStart() {
 void start() {
     seed++;
 
-    (*(unsigned short *)0x4000000) = 0 | (1<<9) | (1<<12);
+    (*(unsigned short *)0x4000000) = 0 | (1<<9);
 
 
     DMANow(3, startScreenPal, ((unsigned short *)0x5000000), 512/2);
@@ -1505,9 +1519,21 @@ void start() {
 
     DMANow(3, startScreenMap, &((screenblock *)0x6000000)[31], 2048/2);
 
+    for (int i = 0; i < 128; i++) {
+        shadowOAM[i].attr0 = 0;
+        shadowOAM[i].attr1 = 0;
+        shadowOAM[i].attr2 = 0;
+    }
+
+
+    DMANow(3, shadowOAM, ((OBJ_ATTR*)(0x7000000)), 128 * 4);
+
     if ((!(~(oldButtons)&((1<<3))) && (~buttons & ((1<<3))))) {
-        goToGame();
         srand(seed);
+        initGame();
+        goToGame();
+
+
     }
     if ((!(~(oldButtons)&((1<<5))) && (~buttons & ((1<<5))))) {
         goToLose();
@@ -1519,10 +1545,15 @@ void goToGame() {
 
     state = GAME;
 
+
 }
 
 
 void game() {
+
+
+    (*(unsigned short *)0x4000000) = 0 | (1<<9) | (1<<12);
+
 
 
     DMANow(3, gameScreenPal, ((unsigned short *)0x5000000), 512/2);
@@ -1535,12 +1566,20 @@ void game() {
 
 
     DMANow(3, gameScreenMap, &((screenblock *)0x6000000)[31], 2048/2);
+
     updateGame();
 
 
 
     if ((!(~(oldButtons)&((1<<3))) && (~buttons & ((1<<3))))) {
         goToPause();
+    }
+
+
+
+
+    if (hasLost) {
+        goToLose();
     }
 }
 
@@ -1553,6 +1592,8 @@ void goToPause() {
 
 
 void pause() {
+
+    (*(unsigned short *)0x4000000) = 0 | (1<<9);
 
     DMANow(3, pauseScreenPal, ((unsigned short *)0x5000000), 512/2);
 
@@ -1580,6 +1621,8 @@ void goToWin() {
 
 
 void win() {
+    (*(unsigned short *)0x4000000) = 0 | (1<<9);
+
     DMANow(3, winScreenPal, ((unsigned short *)0x5000000), 512/2);
 
 
@@ -1603,6 +1646,8 @@ void goToLose() {
 
 
 void lose() {
+    (*(unsigned short *)0x4000000) = 0 | (1<<9);
+
     DMANow(3, loseScreenPal, ((unsigned short *)0x5000000), 512/2);
 
 
@@ -1613,6 +1658,10 @@ void lose() {
 
 
     DMANow(3, loseScreenMap, &((screenblock *)0x6000000)[31], 2048/2);
+
+    if ((!(~(oldButtons)&((1<<3))) && (~buttons & ((1<<3))))) {
+        goToStart();
+    }
 
 
 
